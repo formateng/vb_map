@@ -1,0 +1,373 @@
+<title>vb,map Lookup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#eef1ef; --panel:#ffffff; --line:#d7dedb; --ink:#17201e; --ink-2:#4b5955; --muted:#7a8783;
+  --sea:#e3eaee; --land:#f8f7f2; --coast:#98a6a2; --iso:#1c2523; --iso-half:#7d8a86;
+  --grid:#c5d0db; --grid-text:#98a9ba; --accent:#c4531a; --accent-soft:#f6e2d5; --accent-ink:#8f3a0f;
+  --warn-bg:#faefcf; --warn-ink:#7a5400; --info-bg:#e5edf4; --info-ink:#2e4d68;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Source Sans 3","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1413; --panel:#161d1c; --line:#28312f; --ink:#e5ebe9; --ink-2:#b2bebb; --muted:#7e8b87;
+    --sea:#101a1e; --land:#1c2422; --coast:#56645f; --iso:#dce4e1; --iso-half:#7f8c88;
+    --grid:#26333d; --grid-text:#4d5f6e; --accent:#f07a3a; --accent-soft:#3b2519; --accent-ink:#ffb28a;
+    --warn-bg:#3a2e10; --warn-ink:#f0cf7a; --info-bg:#172532; --info-ink:#a9c8e3;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1413; --panel:#161d1c; --line:#28312f; --ink:#e5ebe9; --ink-2:#b2bebb; --muted:#7e8b87;
+  --sea:#101a1e; --land:#1c2422; --coast:#56645f; --iso:#dce4e1; --iso-half:#7f8c88;
+  --grid:#26333d; --grid-text:#4d5f6e; --accent:#f07a3a; --accent-soft:#3b2519; --accent-ink:#ffb28a;
+  --warn-bg:#3a2e10; --warn-ink:#f0cf7a; --info-bg:#172532; --info-ink:#a9c8e3;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding:0 16px}
+.wrap{max-width:1240px;margin:0 auto;padding-block:20px 32px;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 24px}
+h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1;letter-spacing:.01em;margin:0}
+h1 sub{font-size:.6em;letter-spacing:0}
+.sub{color:var(--ink-2);margin:0;max-width:62ch}
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:1fr}}
+
+/* map */
+.mapbox{position:relative;background:var(--sea);border:1px solid var(--line);border-radius:6px;overflow:hidden;height:min(78vh,820px);min-height:380px;touch-action:none}
+@media (max-width:860px){.mapbox{height:72vh;min-height:360px}}
+svg.map{width:100%;height:100%;display:block;cursor:crosshair;user-select:none}
+svg.map.dragging{cursor:grabbing}
+.land{fill:var(--land);stroke:var(--coast);stroke-width:.8;vector-effect:non-scaling-stroke}
+.gridl{stroke:var(--grid);stroke-width:.8;vector-effect:non-scaling-stroke;fill:none}
+.gridt{fill:var(--grid-text);font-family:var(--display);font-weight:500}
+.iso{fill:none;stroke:var(--iso);stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.iso.half{stroke:var(--iso-half);stroke-width:.7}
+.isot{fill:var(--iso);font-family:var(--display);font-weight:600;paint-order:stroke;stroke:var(--land);stroke-linejoin:round}
+.ci{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1;vector-effect:non-scaling-stroke}
+.probe{stroke:var(--accent);stroke-width:1.2;stroke-dasharray:4 3;vector-effect:non-scaling-stroke;fill:none}
+.pin{fill:var(--accent);stroke:var(--panel);stroke-width:2;vector-effect:non-scaling-stroke}
+.foot{fill:var(--accent)}
+.hud{position:absolute;left:10px;bottom:10px;display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px 10px;font-family:var(--mono);font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;max-width:calc(100% - 20px);pointer-events:none}
+.hud b{color:var(--ink);font-weight:500}
+.ctrls{position:absolute;right:10px;top:10px;display:grid;gap:6px}
+.ctrls button{width:34px;height:34px;border-radius:4px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 18px/1 var(--body);cursor:pointer}
+.ctrls button:hover{border-color:var(--ink-2)}
+.legend{position:absolute;left:10px;top:10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 10px;font-size:12px;color:var(--ink-2);display:grid;gap:3px;pointer-events:none}
+.legend span{display:flex;align-items:center;gap:8px}
+.legend i{display:inline-block;width:22px;height:0;border-top:1.6px solid var(--iso)}
+.legend i.h{border-top:1px solid var(--iso-half)}
+
+/* panel */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px;display:grid;gap:18px}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:0}
+.readout{display:grid;gap:6px}
+.big{display:flex;align-items:baseline;gap:8px;font-family:var(--display);font-weight:600;line-height:.9}
+.big .num{font-size:72px;font-variant-numeric:tabular-nums;color:var(--accent-ink)}
+.big .unit{font-size:26px;color:var(--ink-2);font-weight:500}
+.note{color:var(--ink-2);margin:0;font-size:14px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.bracket{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:14px}
+.bar{height:6px;border-radius:3px;background:var(--line);position:relative}
+.bar b{position:absolute;top:-4px;width:3px;height:14px;background:var(--accent);border-radius:1px;transform:translateX(-50%)}
+.bracket .v{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:13px;padding:4px 9px;border-radius:3px;background:var(--warn-bg);color:var(--warn-ink);line-height:1.35}
+.chip.info{background:var(--info-bg);color:var(--info-ink)}
+form{display:grid;gap:8px}
+label{font-weight:600;font-size:14px}
+.row{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;font:15px var(--mono);padding:9px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink)}
+input[type=text]:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn{font:600 14px var(--body);padding:9px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--ink-2)}
+.examples{display:flex;flex-wrap:wrap;gap:6px;font-size:13px;color:var(--muted);align-items:center}
+.examples button{font:13px var(--mono);background:none;border:1px dashed var(--line);color:var(--ink-2);border-radius:3px;padding:2px 7px;cursor:pointer}
+.msg{font-size:13px;color:var(--warn-ink);min-height:1.2em;margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+details{border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+details p{color:var(--ink-2);font-size:14px;margin:.6em 0 0;max-width:68ch}
+footer{color:var(--muted);font-size:13px;max-width:90ch}
+footer p{margin:0}
+@media (prefers-reduced-motion:no-preference){.pin{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>v<sub>b,map</sub> Lookup</h1>
+    <p class="sub">Fundamental basic wind velocity from Figure NA.1 of the UK National Annex to BS EN 1991-1-4:2005+A1:2010. Click the map or enter a location.</p>
+  </header>
+
+  <div class="layout">
+    <div class="mapbox" id="mapbox">
+      <svg class="map" id="map" role="img" aria-label="Map of the UK and Ireland with NA.1 wind isopleths. Click to read vb,map."></svg>
+      <div class="legend" aria-hidden="true">
+        <span><i></i>Isopleth, 1 m/s</span>
+        <span><i class="h"></i>Half-value line</span>
+      </div>
+      <div class="ctrls">
+        <button type="button" id="zin" aria-label="Zoom in">+</button>
+        <button type="button" id="zout" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="zreset" aria-label="Show whole map" style="font-size:13px">&#8634;</button>
+      </div>
+      <div class="hud" id="hud">Hover the map</div>
+    </div>
+
+    <aside class="panel" aria-live="polite">
+      <div class="readout">
+        <p class="eyebrow" id="where">Example: London Bridge</p>
+        <div class="big"><span class="num" id="val">&ndash;</span><span class="unit">m/s</span></div>
+        <p class="note">v<sub>b,map</sub> before the altitude correction.</p>
+      </div>
+
+      <div id="bracketBox" class="bracket"></div>
+      <div class="chips" id="chips"></div>
+
+      <dl class="kv" id="kv"></dl>
+
+      <div class="actions">
+        <button type="button" class="btn ghost" id="copy">Copy result</button>
+      </div>
+
+      <form id="f" autocomplete="off">
+        <label for="q">Location</label>
+        <div class="row">
+          <input type="text" id="q" placeholder="TQ 32500 80500 · 532500, 180500 · 51.508, -0.088 · SW1A 1AA" aria-describedby="msg">
+          <button class="btn" type="submit">Find</button>
+        </div>
+        <div class="examples">Try
+          <button type="button" data-q="NT 25900 74000">NT 25900 74000</button>
+          <button type="button" data-q="394400, 806500">394400, 806500</button>
+          <button type="button" data-q="58.209, -6.389">58.209, -6.389</button>
+        </div>
+        <p class="msg" id="msg"></p>
+      </form>
+
+      <details>
+        <summary>How the value is worked out</summary>
+        <p>The isopleths were digitised from the published Figure NA.1 and checked against it: the traced lines sit within about 1 km of the originals in Great Britain and about 6 km in the Irish inset.</p>
+        <p>The value is interpolated between the two isopleths either side of the site, in proportion to the shortest distance to each: v = v<sub>1</sub> + (v<sub>2</sub> &minus; v<sub>1</sub>) &middot; d<sub>1</sub> / (d<sub>1</sub> + d<sub>2</sub>). The dashed lines on the map show those two distances. Isopleths are drawn every 0.5 m/s: labelled lines at whole values and unlabelled hairlines at the halves.</p>
+        <p>Inside the 21.5 m/s ring the map gives no lower value, so 21.5 is returned. Beyond the 31 m/s line the value is held at 31. The Channel Islands take the single value of 24 m/s noted on the figure.</p>
+      </details>
+    </aside>
+  </div>
+
+  <footer>
+    <p>A checking and screening tool. Verify design values against Figure NA.1 itself and apply the altitude factor c<sub>alt</sub> (NA.2.5). Isopleths in the Irish Republic are shown on NA.1 for interpolation only. Coordinates are OS National Grid (OSGB36); latitude and longitude are converted with a Helmert transform, accurate to a few metres.</p>
+  </footer>
+</div>
+
+<script>/*DATA*/</script>
+<script>/*OSGB*/</script>
+<script>/*CORE*/</script>
+<script>
+(() => {
+  VB.init(DATA);
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('map');
+  const el = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; };
+  const pathD = (c, close) => 'M' + c.map(p => p[0] + ',' + (-p[1])).join('L') + (close ? 'Z' : '');
+
+  // ---- static layers (km, y negated so north is up) ----
+  const gLand = el('g', {}), gGrid = el('g', {}), gIso = el('g', {}), gLab = el('g', {}), gTop = el('g', {});
+  for (const p of DATA.land) el('path', { d: pathD(p, true), class: 'land' }, gLand);
+  for (const p of DATA.ci) el('path', { d: pathD(p, true), class: 'ci' }, gLand);
+  for (let e = 0; e <= 700; e += 100) el('line', { x1: e, y1: 0, x2: e, y2: -1300, class: 'gridl' }, gGrid);
+  for (let n = 0; n <= 1300; n += 100) el('line', { x1: 0, y1: -n, x2: 700, y2: -n, class: 'gridl' }, gGrid);
+  const sqLabels = [];
+  for (let e = 0; e < 700; e += 100) for (let n = 0; n < 1300; n += 100) {
+    const s = OSGB.squareLetters(e * 1000 + 1, n * 1000 + 1);
+    if (s) sqLabels.push(el('text', { x: e + 50, y: -n - 50, class: 'gridt', 'text-anchor': 'middle', 'dominant-baseline': 'central' }, gGrid));
+    if (s) sqLabels[sqLabels.length - 1].textContent = s;
+  }
+  const isoLabels = [];
+  for (const l of DATA.lines) {
+    const half = l.v % 1 !== 0;
+    el('path', { d: pathD(l.c, l.ring), class: 'iso' + (half ? ' half' : '') }, gIso);
+    if (!half) {                                   // label whole values once per line, near its middle
+      const c = l.c[Math.floor(l.c.length * 0.45)];
+      const t = el('text', { x: c[0], y: -c[1], class: 'isot', 'text-anchor': 'middle', 'dominant-baseline': 'central' }, gLab);
+      t.textContent = l.v; isoLabels.push(t);
+    }
+  }
+  const probeA = el('line', { class: 'probe' }, gTop), probeB = el('line', { class: 'probe' }, gTop);
+  const footA = el('circle', { class: 'foot' }, gTop), footB = el('circle', { class: 'foot' }, gTop);
+  const pin = el('circle', { class: 'pin' }, gTop);
+
+  // ---- view (viewBox pan / zoom) ----
+  const HOME = { x: -240, y: -1280, w: 960, h: 1400 };
+  let vb = { ...HOME };
+  function fit() {
+    const r = svg.getBoundingClientRect(), ar = r.width / r.height;
+    let w = vb.w, h = vb.h;
+    if (w / h > ar) h = w / ar; else w = h * ar;
+    return { x: vb.x + (vb.w - w) / 2, y: vb.y + (vb.h - h) / 2, w, h, s: w / r.width };
+  }
+  function render() {
+    const v = fit();
+    svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+    const px = v.s;                                // km per screen pixel
+    for (const t of sqLabels) t.setAttribute('font-size', 15 * px);
+    for (const t of isoLabels) { t.setAttribute('font-size', 14 * px); t.setAttribute('stroke-width', 4 * px); }
+    pin.setAttribute('r', 6 * px); footA.setAttribute('r', 3 * px); footB.setAttribute('r', 3 * px);
+  }
+  function toKm(evt) {
+    const r = svg.getBoundingClientRect(), v = fit();
+    return [v.x + (evt.clientX - r.left) * v.s, -(v.y + (evt.clientY - r.top) * v.s)];
+  }
+  function zoomAt(f, cx, cy) {                     // cx, cy in viewBox units
+    vb = { x: cx - (cx - vb.x) * f, y: cy - (cy - vb.y) * f, w: vb.w * f, h: vb.h * f };
+    vb.w = Math.min(Math.max(vb.w, 12), 2400); vb.h = vb.w * HOME.h / HOME.w;
+    render();
+  }
+  const center = () => { const v = fit(); return [v.x + v.w / 2, v.y + v.h / 2]; };
+  document.getElementById('zin').onclick = () => zoomAt(0.6, ...center());
+  document.getElementById('zout').onclick = () => zoomAt(1 / 0.6, ...center());
+  document.getElementById('zreset').onclick = () => { vb = { ...HOME }; render(); };
+  svg.addEventListener('wheel', e => {
+    e.preventDefault(); const [x, y] = toKm(e);
+    zoomAt(e.deltaY > 0 ? 1.18 : 1 / 1.18, x, -y);
+  }, { passive: false });
+
+  const pts = new Map(); let drag = null, pinch = null;
+  svg.addEventListener('pointerdown', e => {
+    svg.setPointerCapture(e.pointerId); pts.set(e.pointerId, e);
+    if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, vb: { ...vb }, moved: false };
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), vb: { ...vb } }; drag = null; }
+  });
+  svg.addEventListener('pointermove', e => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, e);
+    if (pinch && pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const f = pinch.d / d, m = { clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 };
+      vb = { ...pinch.vb }; const [x, y] = toKm(m); zoomAt(f, x, -y); pinch = { d, vb: { ...vb } };
+      return;
+    }
+    if (drag) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (Math.hypot(dx, dy) > 4) { drag.moved = true; svg.classList.add('dragging'); }
+      if (drag.moved) { const s = fit().s; vb = { ...drag.vb, x: drag.vb.x - dx * s, y: drag.vb.y - dy * s }; render(); }
+      return;
+    }
+    hover(e);
+  });
+  const end = e => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+    if (drag && !drag.moved && e.type === 'pointerup') { const [E, N] = toKm(e); select(E, N, null); }
+    if (pts.size === 0) { drag = null; svg.classList.remove('dragging'); }
+  };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  svg.addEventListener('pointerleave', () => { hud.textContent = 'Hover the map'; });
+
+  // ---- readouts ----
+  const hud = document.getElementById('hud');
+  let raf = 0;
+  function hover(e) {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0; const [E, N] = toKm(e), r = VB.vbmap(E, N);
+      const gr = OSGB.toGridRef(E * 1000, N * 1000, 6);
+      hud.innerHTML = `<b>${r.v.toFixed(2)} m/s</b>${gr ? ' · ' + gr : ''} · E ${Math.round(E * 1000)} N ${Math.round(N * 1000)}`;
+    });
+  }
+  const FLAG = {
+    outside_map: ['Outside the area covered by Figure NA.1. The value is an extrapolation.', ''],
+    irish_republic: ['Irish Republic: NA.1 shows these isopleths for interpolation only.', 'info'],
+    'inside_21.5_ring': ['Inside the 21.5 m/s ring, the lowest value on the map.', 'info'],
+    beyond_31: ['Beyond the 31 m/s line. The value is held at 31 m/s.', ''],
+    beyond_line_end: ['Beyond the end of the nearest isopleth. Check against NA.1.', '']
+  };
+  const fmt = (x, d = 0) => x.toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d });
+  let last = null;
+  function select(E, N, label) {
+    const r = VB.vbmap(E, N); last = { r, label };
+    const Em = E * 1000, Nm = N * 1000, gr = OSGB.toGridRef(Em, Nm, 10);
+    const [lat, lon] = OSGB.enToLL(Em, Nm);
+    document.getElementById('val').textContent = r.v.toFixed(2);
+    document.getElementById('where').textContent = label || (gr || 'Selected point');
+    const kv = document.getElementById('kv');
+    kv.innerHTML = `<dt>Grid ref</dt><dd>${gr || 'outside the OS grid squares'}</dd>
+      <dt>Easting, Northing</dt><dd>${fmt(Em)}, ${fmt(Nm)} m</dd>
+      <dt>Lat, long</dt><dd>${lat.toFixed(5)}, ${lon.toFixed(5)}</dd>
+      <dt>Method</dt><dd>${r.method}</dd>`;
+    const bb = document.getElementById('bracketBox');
+    if (r.lo && r.hi) {
+      const pos = (r.v - r.lo.v) / (r.hi.v - r.lo.v) * 100;
+      bb.hidden = false;
+      bb.innerHTML = `<span class="v">${r.lo.v.toFixed(1)}</span><div class="bar"><b style="left:${pos}%"></b></div><span class="v">${r.hi.v.toFixed(1)}</span>
+        <span></span><span class="note" style="font-size:13px">${fmt(r.lo.d, 1)} km to the ${r.lo.v} line, ${fmt(r.hi.d, 1)} km to the ${r.hi.v} line</span><span></span>`;
+      probeA.setAttribute('x1', E); probeA.setAttribute('y1', -N); probeA.setAttribute('x2', r.lo.x); probeA.setAttribute('y2', -r.lo.y);
+      probeB.setAttribute('x1', E); probeB.setAttribute('y1', -N); probeB.setAttribute('x2', r.hi.x); probeB.setAttribute('y2', -r.hi.y);
+      footA.setAttribute('cx', r.lo.x); footA.setAttribute('cy', -r.lo.y); footB.setAttribute('cx', r.hi.x); footB.setAttribute('cy', -r.hi.y);
+      [probeA, probeB, footA, footB].forEach(x => x.style.display = '');
+    } else {
+      bb.hidden = true; [probeA, probeB, footA, footB].forEach(x => x.style.display = 'none');
+    }
+    pin.setAttribute('cx', E); pin.setAttribute('cy', -N);
+    document.getElementById('chips').innerHTML = r.flags.map(f => `<span class="chip ${FLAG[f] ? FLAG[f][1] : ''}">${FLAG[f] ? FLAG[f][0] : f}</span>`).join('');
+    render();
+  }
+
+  // ---- location input ----
+  const msg = document.getElementById('msg');
+  async function parse(q) {
+    q = q.trim(); if (!q) throw new Error('Enter a grid reference, coordinates or a postcode.');
+    const gr = OSGB.fromGridRef(q);
+    if (gr) return { E: gr[0], N: gr[1], label: q.toUpperCase() };
+    const nums = q.replace(/[;]/g, ',').split(/[\s,]+/).filter(Boolean).map(Number);
+    if (nums.length === 2 && nums.every(isFinite)) {
+      const [a, b] = nums;
+      if (Math.abs(a) <= 90 && Math.abs(b) <= 180 && !(Math.abs(a) > 1000)) {
+        const [E, N] = OSGB.llToEN(a, b); return { E, N, label: `${a}, ${b}` };
+      }
+      return { E: a, N: b, label: `E ${fmt(a)}, N ${fmt(b)}` };
+    }
+    if (/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(q)) {
+      let res;
+      try { res = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(q)); }
+      catch { throw new Error('Postcode lookup could not reach postcodes.io. Use a grid reference or coordinates instead.'); }
+      const j = await res.json();
+      if (!res.ok || !j.result) throw new Error(`Postcode ${q.toUpperCase()} was not found.`);
+      return { E: j.result.eastings, N: j.result.northings, label: j.result.postcode };
+    }
+    throw new Error('Not recognised. Use a grid reference (TQ 32500 80500), Easting, Northing in metres, lat, long, or a postcode.');
+  }
+  document.getElementById('f').addEventListener('submit', async e => {
+    e.preventDefault(); msg.textContent = '';
+    try {
+      const p = await parse(document.getElementById('q').value);
+      select(p.E / 1000, p.N / 1000, p.label);
+      const w = 180; vb = { x: p.E / 1000 - w / 2, y: -p.N / 1000 - w * HOME.h / HOME.w / 2, w, h: w * HOME.h / HOME.w }; render();
+    } catch (err) { msg.textContent = err.message; }
+  });
+  document.querySelectorAll('.examples button').forEach(b => b.onclick = () => {
+    document.getElementById('q').value = b.dataset.q; document.getElementById('f').requestSubmit();
+  });
+  document.getElementById('copy').onclick = async () => {
+    if (!last) return; const r = last.r;
+    const Em = Math.round(r.E * 1000), Nm = Math.round(r.N * 1000);
+    const txt = `vb,map = ${r.v.toFixed(2)} m/s (before altitude correction) at ${OSGB.toGridRef(Em, Nm, 10) || ''} E ${Em} N ${Nm}` +
+      (r.lo ? `; between ${r.lo.v} m/s (${r.lo.d.toFixed(1)} km) and ${r.hi.v} m/s (${r.hi.d.toFixed(1)} km)` : `; ${r.method}`) +
+      '. Source: digitised BS EN 1991-1-4 NA Figure NA.1.';
+    const btn = document.getElementById('copy');
+    try { await navigator.clipboard.writeText(txt); btn.textContent = 'Copied'; }
+    catch { msg.textContent = txt; btn.textContent = 'Copy failed, text shown below'; }
+    setTimeout(() => btn.textContent = 'Copy result', 1800);
+  };
+
+  new ResizeObserver(render).observe(svg);
+  select(532.5, 180.5, 'Example: London Bridge');
+})();
+</script>
