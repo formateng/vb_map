@@ -535,7 +535,10 @@ if (typeof module !== 'undefined') module.exports = VB;
       catch { throw new Error('Postcode lookup could not reach postcodes.io. Use a grid reference or coordinates instead.'); }
       const j = await res.json();
       if (!res.ok || !j.result) throw new Error(`Postcode ${q.toUpperCase()} was not found.`);
-      return { E: j.result.eastings, N: j.result.northings, label: j.result.postcode };
+      // Use lat/long: postcodes.io gives Northern Ireland (BT) eastings/northings on the Irish grid.
+      if (j.result.latitude == null || j.result.longitude == null) throw new Error(`Postcode ${j.result.postcode} has no location on record.`);
+      const [E, N] = OSGB.llToEN(j.result.latitude, j.result.longitude);
+      return { E, N, label: j.result.postcode };
     }
     throw new Error('Not recognised. Use a grid reference (TQ 32500 80500), Easting, Northing in metres, lat, long, or a postcode.');
   }
