@@ -1,6 +1,6 @@
 # vb,map Lookup
 
-A static web page that reads the fundamental basic wind velocity **v<sub>b,map</sub>** (m/s, before the altitude correction) from digitised isopleths of **Figure NA.1, NA to BS EN 1991-1-4:2005+A1:2010**.
+A static web page that reads the fundamental basic wind velocity **v<sub>b,map</sub>** (m/s) from digitised isopleths of **Figure NA.1, NA to BS EN 1991-1-4:2005+A1:2010**.
 
 Click the map, or enter a grid reference (`TQ 32500 80500`), Easting/Northing in metres (`532500, 180500`), latitude/longitude (`51.508, -0.088`) or a postcode. The page shows the value, the two isopleths it lies between and the distance to each, and flags cases that need care.
 
@@ -42,7 +42,7 @@ Latitude/longitude uses a 7-parameter Helmert transform (a few metres); postcode
 
 ## Use and limits
 
-A checking and screening tool. Verify design values against Figure NA.1 itself and apply c<sub>alt</sub> (NA.2.5) and the other National Annex factors.
+A checking and screening tool. Verify design values against Figure NA.1 itself. v<sub>b,map</sub> is the map value; the site value is v<sub>b,0</sub> = v<sub>b,map</sub> · c<sub>alt</sub> (Equation NA.1, c<sub>alt</sub> from NA.2.5), followed by the other National Annex factors.
 
 ## Licence and data
 

@@ -91,8 +91,17 @@ input[type=text]:focus-visible,button:focus-visible{outline:2px solid var(--acce
 .btn{font:600 14px var(--body);padding:9px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .btn.ghost:hover{border-color:var(--ink-2)}
-.examples{display:flex;flex-wrap:wrap;gap:6px;font-size:13px;color:var(--muted);align-items:center}
-.examples button{font:13px var(--mono);background:none;border:1px dashed var(--line);color:var(--ink-2);border-radius:3px;padding:2px 7px;cursor:pointer}
+.combo{position:relative;flex:1;min-width:0;display:flex}
+.opts{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;margin:0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:320px;overflow:auto}
+.opts li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:7px 9px;border-radius:3px;cursor:pointer}
+.opts li[aria-selected="true"],.opts li:hover{background:var(--accent-soft)}
+.opts .t{font-weight:600;font-size:14px;color:var(--ink)}
+.opts .ex{font:13px var(--mono);color:var(--accent-ink);text-align:right;white-space:nowrap}
+.opts .d{grid-column:1/-1;font-size:12.5px;color:var(--ink-2)}
+.opts .hd{cursor:default;padding:6px 9px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;display:block}
+.opts .hd:hover{background:none}
+.accepts{font-size:13px;color:var(--muted);margin:0}
+.accepts b{color:var(--ink-2);font-weight:600}
 .msg{font-size:13px;color:var(--warn-ink);min-height:1.2em;margin:0}
 .actions{display:flex;flex-wrap:wrap;gap:8px}
 details{border-top:1px solid var(--line);padding-top:12px}
@@ -128,7 +137,7 @@ footer p{margin:0}
       <div class="readout">
         <p class="eyebrow" id="where">Example: London Bridge</p>
         <div class="big"><span class="num" id="val">&ndash;</span><span class="unit">m/s</span></div>
-        <p class="note">v<sub>b,map</sub> before the altitude correction.</p>
+        <p class="note">v<sub>b,map</sub> from Figure NA.1. For the site value use v<sub>b,0</sub> = v<sub>b,map</sub> &middot; c<sub>alt</sub> (Equation NA.1, c<sub>alt</sub> from NA.2.5).</p>
       </div>
 
       <div id="bracketBox" class="bracket"></div>
@@ -143,14 +152,14 @@ footer p{margin:0}
       <form id="f" autocomplete="off">
         <label for="q">Location</label>
         <div class="row">
-          <input type="text" id="q" placeholder="TQ 32500 80500 · 532500, 180500 · 51.508, -0.088 · SW1A 1AA" aria-describedby="msg">
+          <div class="combo">
+            <input type="text" id="q" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="opts"
+                   placeholder="Grid ref, Easting/Northing, lat/long or postcode" aria-describedby="accepts msg">
+            <ul class="opts" id="opts" role="listbox" hidden></ul>
+          </div>
           <button class="btn" type="submit">Find</button>
         </div>
-        <div class="examples">Try
-          <button type="button" data-q="NT 25900 74000">NT 25900 74000</button>
-          <button type="button" data-q="394400, 806500">394400, 806500</button>
-          <button type="button" data-q="58.209, -6.389">58.209, -6.389</button>
-        </div>
+        <p class="accepts" id="accepts">Click the box to see the formats it accepts.</p>
         <p class="msg" id="msg"></p>
       </form>
 
@@ -164,7 +173,7 @@ footer p{margin:0}
   </div>
 
   <footer>
-    <p>A checking and screening tool. Verify design values against Figure NA.1 itself and apply the altitude factor c<sub>alt</sub> (NA.2.5). Isopleths in the Irish Republic are shown on NA.1 for interpolation only. Coordinates are OS National Grid (OSGB36); latitude and longitude are converted with a Helmert transform, accurate to a few metres.</p>
+    <p>A checking and screening tool. Verify design values against Figure NA.1 itself and then take v<sub>b,0</sub> = v<sub>b,map</sub> &middot; c<sub>alt</sub> (Equation NA.1, c<sub>alt</sub> from NA.2.5). Isopleths in the Irish Republic are shown on NA.1 for interpolation only. Coordinates are OS National Grid (OSGB36); latitude and longitude are converted with a Helmert transform, accurate to a few metres.</p>
   </footer>
 </div>
 
@@ -355,13 +364,89 @@ footer p{margin:0}
       const w = 180; vb = { x: p.E / 1000 - w / 2, y: -p.N / 1000 - w * HOME.h / HOME.w / 2, w, h: w * HOME.h / HOME.w }; render();
     } catch (err) { msg.textContent = err.message; }
   });
-  document.querySelectorAll('.examples button').forEach(b => b.onclick = () => {
-    document.getElementById('q').value = b.dataset.q; document.getElementById('f').requestSubmit();
+  // ---- location box: format options, live recognition, postcode suggestions ----
+  const q = document.getElementById('q'), opts = document.getElementById('opts'), form = document.getElementById('f');
+  const FORMATS = [
+    { t: 'OS grid reference', ex: 'TQ 32500 80500', d: 'Two letters then 2 to 10 digits, spaces optional (NT 259 740, SU1234567890).' },
+    { t: 'Easting, Northing', ex: '532500, 180500', d: 'OS National Grid coordinates in metres, separated by a comma or space.' },
+    { t: 'Latitude, longitude', ex: '51.5080, -0.0877', d: 'WGS84 decimal degrees, as from GPS or online maps. West is negative.' },
+    { t: 'Postcode', ex: 'SW1A 1AA', d: 'Full UK postcode, including Northern Ireland. Suggestions appear as you type.' }
+  ];
+  let items = [], active = -1, pcTimer = 0, pcSeq = 0;
+  function detect(s) {
+    s = s.trim(); if (!s) return null;
+    const gr = OSGB.fromGridRef(s);
+    if (gr) return { t: 'OS grid reference', v: `E ${fmt(Math.round(gr[0]))}, N ${fmt(Math.round(gr[1]))}` };
+    const nums = s.replace(/;/g, ',').split(/[\s,]+/).filter(Boolean).map(Number);
+    if (nums.length === 2 && nums.every(isFinite)) {
+      const [a, b] = nums;
+      if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
+        const [E, N] = OSGB.llToEN(a, b); return { t: 'Latitude, longitude', v: `E ${fmt(Math.round(E))}, N ${fmt(Math.round(N))}` };
+      }
+      return { t: 'Easting, Northing', v: OSGB.toGridRef(a, b, 6) || 'outside the OS grid squares' };
+    }
+    if (/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(s)) return { t: 'Postcode', v: 'looked up when you press Find' };
+    return null;
+  }
+  function show(list) {
+    items = list; active = -1;
+    opts.innerHTML = list.map((it, i) => it.hd
+      ? `<li class="hd" role="presentation">${it.hd}</li>`
+      : `<li role="option" id="opt${i}" data-i="${i}" aria-selected="false"><span class="t">${it.t}</span><span class="ex">${it.ex || ''}</span>${it.d ? `<span class="d">${it.d}</span>` : ''}</li>`).join('');
+    opts.hidden = !list.length; q.setAttribute('aria-expanded', String(!!list.length));
+  }
+  function hide() { opts.hidden = true; q.setAttribute('aria-expanded', 'false'); active = -1; }
+  function refresh() {
+    const s = q.value.trim(), list = [];
+    const d = detect(s);
+    if (!s) { list.push({ hd: 'You can type' }); FORMATS.forEach(f => list.push({ ...f, fill: f.ex })); }
+    else if (d) { list.push({ hd: 'Recognised' }); list.push({ t: d.t, ex: s.toUpperCase() === s ? s : s, d: d.v, submit: true }); }
+    else { list.push({ hd: 'Not recognised yet. Formats' }); FORMATS.forEach(f => list.push({ t: f.t, ex: f.ex, fill: f.ex })); }
+    show(list);
+    // postcode suggestions (needs internet; silently skipped when blocked)
+    clearTimeout(pcTimer);
+    if (/^[A-Z]{1,2}\d/i.test(s) && !OSGB.fromGridRef(s) && s.length >= 3) {
+      const seq = ++pcSeq;
+      pcTimer = setTimeout(async () => {
+        try {
+          const r = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(s) + '/autocomplete?limit=6');
+          const j = await r.json();
+          if (seq !== pcSeq || !j.result || !j.result.length || q.value.trim() !== s) return;
+          const base = items.filter(it => !(it.pc || it.hd === 'Postcodes'));
+          show(base.concat([{ hd: 'Postcodes' }], j.result.map(p => ({ t: p, ex: '', pc: true, fill: p, submit: true }))));
+        } catch { /* offline or blocked: keep the format list */ }
+      }, 250);
+    }
+  }
+  function choose(i) {
+    const it = items[i]; if (!it || it.hd) return;
+    if (it.fill) q.value = it.fill;
+    if (it.submit) { hide(); form.requestSubmit(); return; }
+    q.focus(); q.select(); refresh();            // format example: select it so it can be typed over
+  }
+  function move(step) {
+    const idx = items.map((it, i) => it.hd ? -1 : i).filter(i => i >= 0); if (!idx.length) return;
+    let k = idx.indexOf(active); k = k < 0 ? (step > 0 ? 0 : idx.length - 1) : (k + step + idx.length) % idx.length;
+    active = idx[k];
+    opts.querySelectorAll('[role=option]').forEach(li => li.setAttribute('aria-selected', String(+li.dataset.i === active)));
+    q.setAttribute('aria-activedescendant', 'opt' + active);
+    document.getElementById('opt' + active)?.scrollIntoView({ block: 'nearest' });
+  }
+  q.addEventListener('focus', refresh);
+  q.addEventListener('input', refresh);
+  q.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (opts.hidden) refresh(); move(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+    else if (e.key === 'Enter' && active >= 0 && !opts.hidden) { e.preventDefault(); choose(active); }
+    else if (e.key === 'Escape') hide();
   });
+  opts.addEventListener('mousedown', e => { const li = e.target.closest('[role=option]'); if (li) { e.preventDefault(); choose(+li.dataset.i); } });
+  q.addEventListener('blur', () => setTimeout(hide, 120));
+  form.addEventListener('submit', hide);
   document.getElementById('copy').onclick = async () => {
     if (!last) return; const r = last.r;
     const Em = Math.round(r.E * 1000), Nm = Math.round(r.N * 1000);
-    const txt = `vb,map = ${r.v.toFixed(2)} m/s (before altitude correction) at ${OSGB.toGridRef(Em, Nm, 10) || ''} E ${Em} N ${Nm}` +
+    const txt = `vb,map = ${r.v.toFixed(2)} m/s (Figure NA.1; vb,0 = vb,map x calt) at ${OSGB.toGridRef(Em, Nm, 10) || ''} E ${Em} N ${Nm}` +
       (r.lo ? `; between ${r.lo.v} m/s (${r.lo.d.toFixed(1)} km) and ${r.hi.v} m/s (${r.hi.d.toFixed(1)} km)` : `; ${r.method}`) +
       '. Source: digitised BS EN 1991-1-4 NA Figure NA.1.';
     const btn = document.getElementById('copy');
