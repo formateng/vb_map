@@ -13,7 +13,10 @@ index.html                    built site, single self-contained file (commit aft
 src/page.html                 page layout, styles and UI script (placeholders for data and libraries)
 src/core.js                   vb,map calculation (proportional-distance interpolation)
 src/osgb.js                   WGS84 <-> OS National Grid, grid references
-data/na1_isopleths_web.json   isopleths, Channel Islands and coastline, OS grid km
+data/na1_isopleths_web.json   isopleths, Channel Islands and coastline, OS grid km (simplified for the web)
+data/na1_isopleths_OSGB.geojson  isopleths at full detail, OS National Grid metres (EPSG:27700)
+maps/vbmap_na1.svg|pdf|dxf    vector map: SVG (editable), PDF (A3 print), DXF (CAD, metres)
+tools/make_maps.py            regenerates maps/ from data/
 tools/build.py                rebuilds index.html from src/ and data/
 tests/core.test.mjs           checks against reference values from the Python tool
 .github/workflows/test.yml    runs the tests and checks index.html is rebuilt
@@ -25,6 +28,16 @@ After editing anything in `src/` or `data/`:
 python tools/build.py                 # rewrites index.html
 node --test tests/core.test.mjs       # Node 18+
 ```
+
+## Maps
+
+`maps/` holds a vector version of the map built only from the regenerated isopleths and the Natural Earth coastline:
+
+- `vbmap_na1.svg`: editable in Illustrator or Inkscape; text stays as text.
+- `vbmap_na1.pdf`: A3 portrait print with title, legend, 100 km grid squares and scale bar.
+- `vbmap_na1.dxf`: OS National Grid in metres, so it drops straight onto site plans. Layers `ISO_WHOLE`, `ISO_HALF`, `ISO_LABELS`, `CHANNEL_ISLANDS_24`, `OS_GRID_100KM`, `COASTLINE`.
+
+After changing the data, rebuild them with `python tools/make_maps.py` (needs `matplotlib`, and `ezdxf` for the DXF).
 
 ## Method
 
